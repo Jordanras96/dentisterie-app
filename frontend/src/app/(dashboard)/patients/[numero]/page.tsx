@@ -39,14 +39,14 @@ export default function PatientDetailPage() {
         const p = await trpc.patient.getByNumero.query({ numero })
         setPatient(p as unknown as Record<string, unknown>)
         setForm({
-          nom: (p.nom as string) || '',
-          dateNaissance: p.dateNaissance ? format(new Date(p.dateNaissance as string), 'yyyy-MM-dd') : '',
-          sexe: (p.sexe as string) || '',
-          profession: (p.profession as string) || '',
-          telephone: (p.telephone as string) || '',
-          telephone2: (p.telephone2 as string) || '',
-          adresse: (p.adresse as string) || '',
-          observations: (p.observations as string) || '',
+          nom: p.nom || '',
+          dateNaissance: p.dateNaissance ? format(new Date(p.dateNaissance as unknown as string), 'yyyy-MM-dd') : '',
+          sexe: p.sexe || '',
+          profession: p.profession || '',
+          telephone: p.telephone || '',
+          telephone2: (p as unknown as Record<string, string>).telephone2 || '',
+          adresse: p.adresse || '',
+          observations: p.observations || '',
         })
       } catch {
         toast.error('Patient non trouvé')
@@ -64,7 +64,7 @@ export default function PatientDetailPage() {
       await trpc.patient.update.mutate({
         numero,
         ...form,
-        sexe: form.sexe as 'M' | 'F' | undefined || undefined,
+        sexe: (form.sexe as 'M' | 'F') || undefined,
         dateNaissance: form.dateNaissance || undefined,
       })
       toast.success('Patient mis à jour')
@@ -165,26 +165,30 @@ export default function PatientDetailPage() {
         </Card>
       </div>
 
-      {patient.factures && Array.isArray(patient.factures) && (patient.factures as unknown[]).length > 0 && (
-        <Card>
-          <CardHeader><CardTitle>Dernières factures</CardTitle></CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {(patient.factures as Array<{ numeroOrdre: string; dateVisite: string; montantTotal: number }>).map((f) => (
-                <div key={f.numeroOrdre} className="flex items-center justify-between rounded-md border p-3">
-                  <div>
-                    <span className="font-mono text-sm">{f.numeroOrdre}</span>
-                    <span className="ml-3 text-sm text-muted-foreground">
-                      {format(new Date(f.dateVisite), 'dd/MM/yyyy', { locale: fr })}
-                    </span>
+      {(() => {
+        const factures = patient.factures as Array<{ numeroOrdre: string; dateVisite: string; montantTotal: number }> | undefined
+        if (!factures || factures.length === 0) return null
+        return (
+          <Card>
+            <CardHeader><CardTitle>Dernières factures</CardTitle></CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {factures.map((f) => (
+                  <div key={f.numeroOrdre} className="flex items-center justify-between rounded-md border p-3">
+                    <div>
+                      <span className="font-mono text-sm">{f.numeroOrdre}</span>
+                      <span className="ml-3 text-sm text-muted-foreground">
+                        {format(new Date(f.dateVisite), 'dd/MM/yyyy', { locale: fr })}
+                      </span>
+                    </div>
+                    <Badge variant="secondary">{Number(f.montantTotal).toLocaleString()} Ar</Badge>
                   </div>
-                  <Badge variant="secondary">{Number(f.montantTotal).toLocaleString()} Ar</Badge>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )
+      })()}
     </div>
   )
 }

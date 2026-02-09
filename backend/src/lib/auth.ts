@@ -13,11 +13,13 @@ export async function comparePassword(password: string, hash: string): Promise<b
 }
 
 export function generateToken(userId: number, username: string, role: string): string {
-  return jwt.sign({ userId, username, role }, JWT_SECRET, {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (jwt.sign as any)({ userId, username, role }, JWT_SECRET, {
     expiresIn: JWT_EXPIRES_IN,
   })
 }
 
 export function verifyToken(token: string): { userId: number; username: string; role: string } {
-  return jwt.verify(token, JWT_SECRET) as { userId: number; username: string; role: string }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (jwt.verify as any)(token, JWT_SECRET) as { userId: number; username: string; role: string }
 }

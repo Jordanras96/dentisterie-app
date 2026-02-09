@@ -26,14 +26,20 @@ export default function ParametresPage() {
   useEffect(() => {
     async function load() {
       try {
-        const data = await trpc.parametre.get.query()
+        const data = await trpc.parametre.get.query() as unknown as {
+          nomEtablissement: string
+          adresse: string | null
+          telephone: string | null
+          email: string | null
+          logo: string | null
+        } | null
         if (data) {
           setForm({
-            nomEtablissement: (data as Record<string, string>).nomEtablissement || '',
-            adresse: (data as Record<string, string>).adresse || '',
-            telephone: (data as Record<string, string>).telephone || '',
-            email: (data as Record<string, string>).email || '',
-            logo: (data as Record<string, string>).logo || '',
+            nomEtablissement: data.nomEtablissement || '',
+            adresse: data.adresse || '',
+            telephone: data.telephone || '',
+            email: data.email || '',
+            logo: data.logo || '',
           })
         }
       } catch {

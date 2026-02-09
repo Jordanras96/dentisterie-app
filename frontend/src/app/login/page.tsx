@@ -28,7 +28,11 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const result = await trpc.auth.login.mutate({ username, password })
-      login(result.token, result.user)
+      login(result.token, {
+        ...result.user,
+        role: result.user.role as 'SUPER_ADMIN' | 'ADMIN' | 'OPERATOR',
+        permissions: (result.user.permissions || {}) as Record<string, boolean>,
+      })
       toast.success(`Bienvenue, ${result.user.username}`)
       router.replace('/patients')
     } catch (error: unknown) {

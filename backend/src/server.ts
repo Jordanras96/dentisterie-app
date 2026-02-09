@@ -33,7 +33,7 @@ async function main() {
     trpcOptions: {
       router: appRouter,
       createContext,
-      onError({ path, error }) {
+      onError({ path, error }: { path: string | undefined; error: Error }) {
         console.error(`Error in tRPC handler on path '${path}':`, error)
       },
     },
