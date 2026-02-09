@@ -1,0 +1,57 @@
+version: '3.9'
+
+services:
+  # ============================================
+  # PostgreSQL 18
+  # ============================================
+  postgres:
+    image: postgres:18-alpine
+    container_name: dentisterie-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: dentisterie
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d dentisterie"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ============================================
+  # Backend Fastify + tRPC + Prisma
+  # ============================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dentisterie-backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/dentisterie"
+      PORT: "4000"
+      NODE_ENV: development
+      JWT_SECRET: "dentisterie-secret-key-2026-change-in-production"
+      JWT_EXPIRES_IN: "7d"
+      FRONTEND_URL: "http://localhost:3000"
+      LOG_LEVEL: "info"
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/prisma:/app/prisma
+    command: >
+      sh -c "npx prisma generate &&
+             npx prisma migrate deploy &&
+             npm run dev"
+
+volumes:
+  postgres_data:
+    driver: local

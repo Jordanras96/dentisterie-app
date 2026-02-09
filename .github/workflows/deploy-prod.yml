@@ -1,0 +1,98 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [prod]
+
+jobs:
+  deploy:
+    name: Deploy Production
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/prod'
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: dentisterie_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/dentisterie_test
+      JWT_SECRET: test-secret-key
+      JWT_EXPIRES_IN: 7d
+      PORT: 4000
+      NODE_ENV: test
+      FRONTEND_URL: http://localhost:3000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      # ---- Backend validation ----
+      - name: Install backend dependencies
+        run: npm ci
+        working-directory: backend
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+        working-directory: backend
+
+      - name: Run migrations
+        run: npx prisma migrate deploy
+        working-directory: backend
+
+      - name: Backend tests
+        run: npm test -- --passWithNoTests
+        working-directory: backend
+
+      - name: Build backend
+        run: npm run build
+        working-directory: backend
+
+      # ---- Frontend validation ----
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend
+
+      # ---- Create release artifact ----
+      - name: Create release tag
+        run: |
+          VERSION=$(date +%Y%m%d-%H%M%S)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Release version: $VERSION"
+
+      - name: Upload backend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-${{ env.VERSION }}
+          path: |
+            backend/dist/
+            backend/prisma/
+            backend/package.json
+            backend/package-lock.json
+          retention-days: 30
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-${{ env.VERSION }}
+          path: frontend/.next/
+          retention-days: 30

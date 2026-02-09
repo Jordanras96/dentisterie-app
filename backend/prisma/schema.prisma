@@ -1,0 +1,373 @@
+// Schéma Prisma pour la base de données Dentisterie
+// PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// UTILISATEURS ET AUTHENTIFICATION
+// ============================================
+
+model User {
+  id            Int       @id @default(autoincrement())
+  username      String    @unique
+  password      String
+  role          UserRole
+  permissions   Json      // Permissions granulaires par module
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  logs          UserLog[]
+  deletionRequests DeletionRequest[]
+  
+  @@map("users")
+}
+
+enum UserRole {
+  SUPER_ADMIN   // dev
+  ADMIN         // MC-Harison, GT-Nary
+  OPERATOR      // DT-Operateur
+}
+
+model UserLog {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  action      String   // CREATE, UPDATE, DELETE, VIEW
+  module      String   // patient, intervention, facture, etc.
+  entityType  String   // Type d'entité modifiée
+  entityId    String   // ID de l'entité
+  details     Json?    // Détails de l'action
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+  
+  user        User     @relation(fields: [userId], references: [id])
+  
+  @@map("user_logs")
+  @@index([userId])
+  @@index([createdAt])
+  @@index([module])
+}
+
+model DeletionRequest {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  module      String
+  entityType  String
+  entityId    String
+  reason      String?
+  status      RequestStatus @default(PENDING)
+  approvedBy  Int?
+  approvedAt  DateTime?
+  createdAt   DateTime @default(now())
+  
+  user        User     @relation(fields: [userId], references: [id])
+  
+  @@map("deletion_requests")
+  @@index([status])
+  @@index([userId])
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ============================================
+// PATIENTS
+// ============================================
+
+model Patient {
+  id              Int       @id @default(autoincrement())
+  numeroPatient   String    @unique @map("numero_patient")
+  nom             String
+  dateNaissance   DateTime? @map("date_naissance")
+  sexe            String?   // M ou F
+  profession      String?
+  adresse         String?
+  telephone       String?
+  telephone2      String?
+  derniereVisite  DateTime? @map("derniere_visite")
+  dateCreation    DateTime? @map("date_creation")
+  observations    String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  factures        Facture[]
+  rendezVous      RendezVous[]
+  
+  @@map("patients")
+  @@index([nom])
+  @@index([derniereVisite])
+}
+
+// ============================================
+// INTERVENTIONS (TRAVAUX)
+// ============================================
+
+model Intervention {
+  id                Int      @id @default(autoincrement())
+  codeTravail       String   @unique @map("code_travail")
+  libelle           String
+  prixPublic        Decimal  @default(0) @map("prix_public") @db.Decimal(12, 2)
+  prixPriseCharge   Decimal  @default(0) @map("prix_prise_charge") @db.Decimal(12, 2)
+  prixTiko          Decimal  @default(0) @map("prix_tiko") @db.Decimal(12, 2)
+  prixPersonnel     Decimal  @default(0) @map("prix_personnel") @db.Decimal(12, 2)
+  prixRetraite      Decimal  @default(0) @map("prix_retraite") @db.Decimal(12, 2)
+  produit1          String?
+  produit2          String?
+  produit3          String?
+  produit4          String?
+  produit5          String?
+  produit6          String?
+  produit7          String?
+  produit8          String?
+  produit9          String?
+  produit10         String?
+  isParent          Boolean  @default(false) @map("is_parent")
+  isMiddle          Boolean  @default(false) @map("is_middle")
+  isChild           Boolean  @default(false) @map("is_child")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  lignesFacture     LigneFacture[]
+  interventionsActivite InterventionActivite[]
+  
+  @@map("interventions")
+  @@index([isParent])
+  @@index([isMiddle])
+  @@index([isChild])
+}
+
+// ============================================
+// PRODUITS
+// ============================================
+
+model Produit {
+  id                Int      @id @default(autoincrement())
+  codeProduit       String   @unique @map("code_produit")
+  libelle           String
+  unite             String?
+  nbrUtil           Int      @default(0) @map("nbr_util")
+  prixVte           Decimal  @default(0) @map("prix_vte") @db.Decimal(12, 2)
+  prixAchat         Decimal  @default(0) @map("prix_achat") @db.Decimal(12, 2)
+  prixPers          Decimal  @default(0) @map("prix_pers") @db.Decimal(12, 2)
+  prixRetraite      Decimal  @default(0) @map("prix_retraite") @db.Decimal(12, 2)
+  prixEnfcd         Decimal  @default(0) @map("prix_enfcd") @db.Decimal(12, 2)
+  categorieProduit  String?  @map("categorie_produit")
+  isParent          Boolean  @default(false) @map("is_parent")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  lignesFacture     LigneFacture[]
+  mouvements        MouvementStock[]
+  
+  @@map("produits")
+  @@index([isParent])
+}
+
+// ============================================
+// FACTURES (ACTI1)
+// ============================================
+
+model Facture {
+  id              Int       @id @default(autoincrement())
+  numeroOrdre     String    @unique @map("numero_ordre")
+  numeroPatient   String    @map("numero_patient")
+  nomPatient      String    @map("nom_patient")
+  dateVisite      DateTime  @map("date_visite")
+  typePatient     Int       @default(1) @map("type_patient") // 1=Public, 2=Personnel, 3=Retraité, 4=TIKO
+  assurance       String?
+  montantTotal    Decimal   @default(0) @map("montant_total") @db.Decimal(18, 2)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  patient         Patient   @relation(fields: [numeroPatient], references: [numeroPatient])
+  lignes          LigneFacture[]
+  
+  @@map("factures")
+  @@index([numeroPatient])
+  @@index([dateVisite])
+}
+
+// ============================================
+// LIGNES DE FACTURE (ACTI2)
+// ============================================
+
+model LigneFacture {
+  id                  Int          @id @default(autoincrement())
+  numeroOrdre         String       @map("numero_ordre")
+  codeIntervention    String?      @map("code_intervention")
+  codeProduit         String?      @map("code_produit")
+  quantite            Int          @default(1)
+  prixUnitaire        Decimal      @default(0) @map("prix_unitaire") @db.Decimal(18, 2)
+  montant             Decimal      @default(0) @db.Decimal(18, 2)
+  createdAt           DateTime     @default(now())
+  
+  // Relations
+  facture             Facture      @relation(fields: [numeroOrdre], references: [numeroOrdre])
+  intervention        Intervention? @relation(fields: [codeIntervention], references: [codeTravail])
+  produit             Produit?     @relation(fields: [codeProduit], references: [codeProduit])
+  
+  @@map("lignes_facture")
+  @@index([numeroOrdre])
+  @@index([codeIntervention])
+  @@index([codeProduit])
+}
+
+// ============================================
+// ACTIVITÉS (INTERVENTIONS RÉALISÉES)
+// ============================================
+
+model InterventionActivite {
+  id                Int          @id @default(autoincrement())
+  numeroOrdre       String       @map("numero_ordre")
+  codeIntervention  String       @map("code_intervention")
+  medecinId         Int?         @map("medecin_id")
+  assistantId       Int?         @map("assistant_id")
+  nbr               Int          @default(1)
+  observations      String?
+  createdAt         DateTime     @default(now())
+  
+  // Relations
+  intervention      Intervention @relation(fields: [codeIntervention], references: [codeTravail])
+  medecin           Personnel?   @relation("MedecinInterventions", fields: [medecinId], references: [id])
+  assistant         Personnel?   @relation("AssistantInterventions", fields: [assistantId], references: [id])
+  
+  @@map("interventions_activite")
+  @@index([numeroOrdre])
+}
+
+// ============================================
+// PERSONNEL (DOCTEURS ET ASSISTANTS)
+// ============================================
+
+model Personnel {
+  id                      Int      @id @default(autoincrement())
+  nom                     String
+  prenom                  String
+  type                    PersonnelType // MEDECIN ou ASSISTANT
+  specialite              String?
+  telephone               String?
+  email                   String?
+  isActive                Boolean  @default(true) @map("is_active")
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  
+  // Relations
+  interventionsMedecin    InterventionActivite[] @relation("MedecinInterventions")
+  interventionsAssistant  InterventionActivite[] @relation("AssistantInterventions")
+  rendezVousMedecin       RendezVous[] @relation("MedecinRendezVous")
+  
+  @@map("personnel")
+}
+
+enum PersonnelType {
+  MEDECIN
+  ASSISTANT
+}
+
+// ============================================
+// RENDEZ-VOUS
+// ============================================
+
+model RendezVous {
+  id              Int       @id @default(autoincrement())
+  numeroPatient   String    @map("numero_patient")
+  dateRdv         DateTime  @map("date_rdv")
+  heureDebut      DateTime  @map("heure_debut")
+  heureFin        DateTime  @map("heure_fin")
+  medecinId       Int?      @map("medecin_id")
+  motif           String?
+  interventionsPrevues Json? @map("interventions_prevues") // Liste des codes interventions prévues
+  statut          RdvStatut @default(PLANIFIE)
+  observations    String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  patient         Patient   @relation(fields: [numeroPatient], references: [numeroPatient])
+  medecin         Personnel? @relation("MedecinRendezVous", fields: [medecinId], references: [id])
+  
+  @@map("rendez_vous")
+  @@index([numeroPatient])
+  @@index([dateRdv])
+  @@index([statut])
+}
+
+enum RdvStatut {
+  PLANIFIE
+  CONFIRME
+  EN_COURS
+  TERMINE
+  ANNULE
+  REPORTE
+}
+
+// ============================================
+// MOUVEMENTS DE STOCK
+// ============================================
+
+model MouvementStock {
+  id              Int       @id @default(autoincrement())
+  dateMouvement   DateTime  @map("date_mouvement")
+  codeProduit     String    @map("code_produit")
+  typeMouvement   String    @map("type_mouvement") // E=Entrée, S=Sortie
+  quantite        Int
+  prixUnitaire    Decimal   @map("prix_unitaire") @db.Decimal(12, 2)
+  reference       String?
+  createdAt       DateTime  @default(now())
+  
+  // Relations
+  produit         Produit   @relation(fields: [codeProduit], references: [codeProduit])
+  
+  @@map("mouvements_stock")
+  @@index([dateMouvement])
+  @@index([codeProduit])
+}
+
+// ============================================
+// PARAMÈTRES
+// ============================================
+
+model Parametre {
+  id                Int      @id @default(autoincrement())
+  nomEtablissement  String   @map("nom_etablissement")
+  adresse           String?
+  telephone         String?
+  email             String?
+  logo              String?  // URL ou base64
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@map("parametres")
+}
+
+// ============================================
+// TARIFS PERSONNALISÉS
+// ============================================
+
+model TarifPersonnalise {
+  id                Int      @id @default(autoincrement())
+  nomTarif          String   @map("nom_tarif") // Ex: "Enfant CD", "Étudiant"
+  codeIntervention  String   @map("code_intervention")
+  montant           Decimal  @db.Decimal(12, 2)
+  isActive          Boolean  @default(true) @map("is_active")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@map("tarifs_personnalises")
+  @@index([codeIntervention])
+}
