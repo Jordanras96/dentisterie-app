@@ -8,15 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
-} from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
-import { Plus, FileText, ChevronLeft, ChevronRight, Eye, X } from 'lucide-react'
+import { Plus, FileText, ChevronLeft, ChevronRight, Eye } from 'lucide-react'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import Link from 'next/link'
@@ -46,15 +41,6 @@ export default function FacturesPage() {
   const [dateDebut, setDateDebut] = useState('')
   const [dateFin, setDateFin] = useState('')
   const [loading, setLoading] = useState(true)
-  const [dialogOpen, setDialogOpen] = useState(false)
-
-  const [form, setForm] = useState({
-    numeroPatient: '',
-    dateVisite: format(new Date(), 'yyyy-MM-dd'),
-    typePatient: '1',
-    assurance: '',
-    lignes: [{ code: '', quantite: 1 }],
-  })
 
   const fetchFactures = useCallback(async () => {
     setLoading(true)
@@ -79,43 +65,6 @@ export default function FacturesPage() {
     fetchFactures()
   }, [fetchFactures])
 
-  const addLigne = () => {
-    setForm({ ...form, lignes: [...form.lignes, { code: '', quantite: 1 }] })
-  }
-
-  const removeLigne = (index: number) => {
-    setForm({ ...form, lignes: form.lignes.filter((_, i) => i !== index) })
-  }
-
-  const updateLigne = (index: number, field: string, value: string | number) => {
-    const lignes = [...form.lignes]
-    lignes[index] = { ...lignes[index], [field]: value }
-    setForm({ ...form, lignes })
-  }
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!form.numeroPatient || form.lignes.length === 0) {
-      toast.error('Numéro patient et au moins une ligne sont requis')
-      return
-    }
-    try {
-      await trpc.facture.create.mutate({
-        numeroPatient: form.numeroPatient,
-        dateVisite: form.dateVisite,
-        typePatient: parseInt(form.typePatient),
-        assurance: form.assurance || undefined,
-        lignes: form.lignes.filter((l) => l.code),
-      })
-      toast.success('Facture créée avec succès')
-      setDialogOpen(false)
-      setForm({ numeroPatient: '', dateVisite: format(new Date(), 'yyyy-MM-dd'), typePatient: '1', assurance: '', lignes: [{ code: '', quantite: 1 }] })
-      fetchFactures()
-    } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : 'Erreur')
-    }
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -123,75 +72,9 @@ export default function FacturesPage() {
           <h1 className="text-2xl font-bold">Factures</h1>
           <p className="text-muted-foreground">{total} factures</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button><Plus className="mr-2 h-4 w-4" />Nouvelle facture</Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg">
-            <DialogHeader><DialogTitle>Nouvelle facture</DialogTitle></DialogHeader>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>N° Patient *</Label>
-                  <Input value={form.numeroPatient} onChange={(e) => setForm({ ...form, numeroPatient: e.target.value })} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Date visite</Label>
-                  <Input type="date" value={form.dateVisite} onChange={(e) => setForm({ ...form, dateVisite: e.target.value })} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Type patient</Label>
-                  <Select value={form.typePatient} onValueChange={(v) => setForm({ ...form, typePatient: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">Public</SelectItem>
-                      <SelectItem value="2">Personnel</SelectItem>
-                      <SelectItem value="3">Retraité</SelectItem>
-                      <SelectItem value="4">TIKO</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Assurance</Label>
-                  <Input value={form.assurance} onChange={(e) => setForm({ ...form, assurance: e.target.value })} />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>Lignes de facture</Label>
-                  <Button type="button" variant="outline" size="sm" onClick={addLigne}>
-                    <Plus className="mr-1 h-3 w-3" />Ajouter
-                  </Button>
-                </div>
-                {form.lignes.map((ligne, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <Input
-                      placeholder="Code (ex: I101, P601)"
-                      value={ligne.code}
-                      onChange={(e) => updateLigne(i, 'code', e.target.value)}
-                      className="flex-1"
-                    />
-                    <Input
-                      type="number"
-                      min={1}
-                      value={ligne.quantite}
-                      onChange={(e) => updateLigne(i, 'quantite', parseInt(e.target.value) || 1)}
-                      className="w-20"
-                    />
-                    {form.lignes.length > 1 && (
-                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeLigne(i)}>
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              <Button type="submit" className="w-full">Créer la facture</Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <Link href="/factures/nouvelle">
+          <Button><Plus className="mr-2 h-4 w-4" />Nouvelle facture</Button>
+        </Link>
       </div>
 
       <Card>

@@ -17,6 +17,7 @@ import {
   LogOut,
   Activity,
   UserCog,
+  DollarSign,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -29,6 +30,7 @@ const navItems = [
   { href: '/interventions', label: 'Interventions', icon: Stethoscope },
   { href: '/produits', label: 'Produits', icon: Package },
   { href: '/factures', label: 'Factures', icon: FileText },
+  { href: '/tarifs', label: 'Tarifs', icon: DollarSign },
   { href: '/activites', label: 'Activités', icon: Activity },
   { href: '/rendez-vous', label: 'Rendez-vous', icon: CalendarDays },
   { href: '/rapports', label: 'Rapports', icon: ClipboardList },
