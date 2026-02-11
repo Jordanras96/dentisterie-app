@@ -73,7 +73,7 @@ export default function FacturesPage() {
           <p className="text-muted-foreground">{total} factures</p>
         </div>
         <Link href="/factures/nouvelle">
-          <Button><Plus className="mr-2 h-4 w-4" />Nouvelle facture</Button>
+          <Button data-tour="new-invoice"><Plus className="mr-2 h-4 w-4" />Nouvelle facture</Button>
         </Link>
       </div>
 

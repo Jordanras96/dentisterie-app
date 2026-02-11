@@ -338,7 +338,7 @@ export default function NouvelleFacturePage() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => router.push('/factures')}>Annuler</Button>
-          <Button onClick={handleSave} disabled={saving}>
+          <Button data-tour="submit-invoice" onClick={handleSave} disabled={saving}>
             <Save className="mr-2 h-4 w-4" />{saving ? 'Enregistrement...' : 'Enregistrer'}
           </Button>
         </div>
@@ -351,7 +351,7 @@ export default function NouvelleFacturePage() {
             {/* Patient search */}
             <div className="space-y-2 col-span-2 relative">
               <Label>Patient *</Label>
-              <div className="relative">
+              <div className="relative" data-tour="patient-search">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="N° patient ou nom..."
@@ -383,7 +383,7 @@ export default function NouvelleFacturePage() {
             </div>
 
             {/* Tarif */}
-            <div className="space-y-2">
+            <div className="space-y-2" data-tour="tarif-type">
               <Label>Tarif</Label>
               <Select value={tarifType} onValueChange={setTarifType}>
                 <SelectTrigger><SelectValue /></SelectTrigger>

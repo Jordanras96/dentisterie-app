@@ -117,7 +117,7 @@ export default function UtilisateursPage() {
           <h1 className="text-2xl font-bold">Utilisateurs</h1>
           <p className="text-muted-foreground">Gestion des comptes et permissions</p>
         </div>
-        <Button variant="outline" onClick={() => setPasswordDialog(true)}>
+        <Button variant="outline" data-tour="change-password" onClick={() => setPasswordDialog(true)}>
           <Lock className="mr-2 h-4 w-4" />
           Changer mon mot de passe
         </Button>

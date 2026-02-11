@@ -103,10 +103,11 @@ export default function RendezVousPage() {
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value)}
             className="w-44"
+            data-tour="date-filter"
           />
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button><Plus className="mr-2 h-4 w-4" />Nouveau RDV</Button>
+              <Button data-tour="new-rdv"><Plus className="mr-2 h-4 w-4" />Nouveau RDV</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>Nouveau rendez-vous</DialogTitle></DialogHeader>

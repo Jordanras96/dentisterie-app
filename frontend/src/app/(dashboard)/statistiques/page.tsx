@@ -56,7 +56,7 @@ export default function StatistiquesPage() {
           <h1 className="text-2xl font-bold">Statistiques</h1>
           <p className="text-muted-foreground">Analyses démographiques des patients</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3" data-tour="generate">
           <Input
             type="number"
             min={2020}

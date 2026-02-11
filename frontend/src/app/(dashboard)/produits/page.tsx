@@ -219,10 +219,10 @@ export default function ProduitsPage() {
           <p className="text-muted-foreground">{produits.length} produits enregistrés</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => { setStockDialog(true); setStockLignes([]); setStockSearch('') }}>
+          <Button variant="outline" data-tour="stock-entry" onClick={() => { setStockDialog(true); setStockLignes([]); setStockSearch('') }}>
             <PackagePlus className="mr-2 h-4 w-4" />Saisie d&apos;entrée
           </Button>
-          <Button onClick={openCreate}>
+          <Button data-tour="new-product" onClick={openCreate}>
             <Plus className="mr-2 h-4 w-4" />Nouveau produit
           </Button>
         </div>

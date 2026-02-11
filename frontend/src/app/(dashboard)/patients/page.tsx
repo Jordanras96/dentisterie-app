@@ -116,7 +116,7 @@ export default function PatientsPage() {
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button data-tour="new-patient">
               <Plus className="mr-2 h-4 w-4" />
               Nouveau patient
             </Button>
@@ -171,7 +171,7 @@ export default function PatientsPage() {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center gap-3">
-            <div className="relative flex-1">
+            <div className="relative flex-1" data-tour="search">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Rechercher par nom ou numéro..."
