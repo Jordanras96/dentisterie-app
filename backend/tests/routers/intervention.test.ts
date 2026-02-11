@@ -1,8 +1,28 @@
-import { describe, it, expect, afterAll } from 'vitest'
+import { describe, it, expect, afterAll, beforeAll } from 'vitest'
 import { createTestCaller, createAnonymousCaller, prisma } from '../helpers/trpc'
 
+const TEST_CODES = {
+  parent: 'I9',
+  middle: 'I99',
+  child: 'I991',
+}
+
 describe('intervention router', () => {
+  beforeAll(async () => {
+    await prisma.intervention.createMany({
+      data: [
+        { codeTravail: TEST_CODES.parent, libelle: 'Test Parent', isParent: true, isMiddle: false, isChild: false },
+        { codeTravail: TEST_CODES.middle, libelle: 'Test Middle', isParent: false, isMiddle: true, isChild: false },
+        { codeTravail: TEST_CODES.child, libelle: 'Test Child', isParent: false, isMiddle: false, isChild: true },
+      ],
+      skipDuplicates: true,
+    })
+  })
+
   afterAll(async () => {
+    await prisma.intervention.deleteMany({
+      where: { codeTravail: { in: Object.values(TEST_CODES) } },
+    })
     await prisma.$disconnect()
   })
 
@@ -44,12 +64,13 @@ describe('intervention router', () => {
   describe('intervention.tree', () => {
     it('should return hierarchical tree structure', async () => {
       const caller = createTestCaller()
-      const tree = await caller.intervention.tree()
+      const result = await caller.intervention.tree()
 
-      expect(Array.isArray(tree)).toBe(true)
-      expect(tree.length).toBeGreaterThan(0)
-      // Each parent should have children array
-      for (const parent of tree) {
+      expect(result).toHaveProperty('tree')
+      expect(result).toHaveProperty('orphans')
+      expect(Array.isArray(result.tree)).toBe(true)
+      expect(result.tree.length).toBeGreaterThan(0)
+      for (const parent of result.tree) {
         expect(parent.isParent).toBe(true)
         expect(Array.isArray(parent.children)).toBe(true)
       }
@@ -59,13 +80,9 @@ describe('intervention router', () => {
   describe('intervention.getByCode', () => {
     it('should return intervention by code', async () => {
       const caller = createTestCaller()
-      // Use a code from migrated data
-      const all = await caller.intervention.list({ type: 'child' })
-      if (all.length > 0) {
-        const result = await caller.intervention.getByCode({ code: all[0].codeTravail })
-        expect(result).not.toBeNull()
-        expect(result!.codeTravail).toBe(all[0].codeTravail)
-      }
+      const result = await caller.intervention.getByCode({ code: TEST_CODES.child })
+      expect(result).not.toBeNull()
+      expect(result!.codeTravail).toBe(TEST_CODES.child)
     })
 
     it('should return null for non-existent code', async () => {

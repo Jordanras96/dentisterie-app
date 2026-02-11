@@ -1,12 +1,25 @@
-import { describe, it, expect, afterAll } from 'vitest'
+import { describe, it, expect, afterAll, beforeAll } from 'vitest'
 import { createTestCaller, createAnonymousCaller, prisma } from '../helpers/trpc'
 
 const TEST_PATIENT_NUMERO = '__TEST_P9999__'
+const TEST_CREATE_NUMERO = '__TEST_P8888__'
 
 describe('patient router', () => {
+  beforeAll(async () => {
+    // Cleanup any leftover test data
+    await prisma.patient.deleteMany({
+      where: { numeroPatient: { in: [TEST_PATIENT_NUMERO, TEST_CREATE_NUMERO] } },
+    })
+    // Seed one patient for list/get/update tests
+    await prisma.patient.create({
+      data: { numeroPatient: TEST_PATIENT_NUMERO, nom: 'TEST UNITAIRE', sexe: 'M' },
+    })
+  })
+
   afterAll(async () => {
-    // Cleanup test patient
-    await prisma.patient.deleteMany({ where: { numeroPatient: TEST_PATIENT_NUMERO } })
+    await prisma.patient.deleteMany({
+      where: { numeroPatient: { in: [TEST_PATIENT_NUMERO, TEST_CREATE_NUMERO] } },
+    })
     await prisma.$disconnect()
   })
 
@@ -21,7 +34,7 @@ describe('patient router', () => {
       expect(result).toHaveProperty('pages')
       expect(Array.isArray(result.data)).toBe(true)
       expect(result.data.length).toBeLessThanOrEqual(5)
-      expect(result.total).toBeGreaterThan(0) // Data migrated from MySQL
+      expect(result.total).toBeGreaterThan(0)
     })
 
     it('should filter by search term', async () => {
@@ -56,17 +69,17 @@ describe('patient router', () => {
     it('should create a new patient', async () => {
       const caller = createTestCaller()
       const patient = await caller.patient.create({
-        numeroPatient: TEST_PATIENT_NUMERO,
-        nom: 'TEST UNITAIRE',
-        sexe: 'M',
+        numeroPatient: TEST_CREATE_NUMERO,
+        nom: 'TEST CREATION',
+        sexe: 'F',
         profession: 'Développeur',
         adresse: 'Test Address',
         telephone: '+261 34 99 999 99',
       })
 
-      expect(patient.numeroPatient).toBe(TEST_PATIENT_NUMERO)
-      expect(patient.nom).toBe('TEST UNITAIRE')
-      expect(patient.sexe).toBe('M')
+      expect(patient.numeroPatient).toBe(TEST_CREATE_NUMERO)
+      expect(patient.nom).toBe('TEST CREATION')
+      expect(patient.sexe).toBe('F')
     })
 
     it('should reject duplicate numero_patient', async () => {

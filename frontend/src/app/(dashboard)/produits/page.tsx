@@ -116,15 +116,17 @@ export default function ProduitsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.codeProduit || !form.libelle) {
-      toast.error('Code et libellé sont requis')
+    const code = form.codeProduit.trim()
+    const libelle = form.libelle.trim()
+    if (!code || !libelle) {
+      toast.error(`Code et libellé sont requis (code="${code}", libellé="${libelle}")`)
       return
     }
     try {
       if (editMode) {
         await trpc.produit.update.mutate({
-          codeProduit: form.codeProduit,
-          libelle: form.libelle,
+          codeProduit: code,
+          libelle,
           unite: form.unite || undefined,
           prixVte: form.prixVte,
           prixAchat: form.prixAchat,
@@ -135,8 +137,8 @@ export default function ProduitsPage() {
         toast.success('Produit modifié')
       } else {
         await trpc.produit.create.mutate({
-          codeProduit: form.codeProduit,
-          libelle: form.libelle,
+          codeProduit: code,
+          libelle,
           unite: form.unite || undefined,
           prixVte: form.prixVte,
           prixAchat: form.prixAchat,
@@ -149,7 +151,8 @@ export default function ProduitsPage() {
       setEditDialog(false)
       fetchProduits()
     } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : 'Erreur')
+      const msg = (error as any)?.message || (error as any)?.data?.message || 'Erreur serveur'
+      toast.error(msg)
     }
   }
 

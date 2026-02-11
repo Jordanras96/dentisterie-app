@@ -62,7 +62,7 @@ export default function StatistiquesPage() {
             min={2020}
             max={2030}
             value={annee}
-            onChange={(e) => setAnnee(parseInt(e.target.value))}
+            onChange={(e) => setAnnee(parseInt(e.target.value) || new Date().getFullYear())}
             className="w-28"
           />
           <Button onClick={generate} disabled={loading}>

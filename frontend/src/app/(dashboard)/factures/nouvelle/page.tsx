@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Fragment } from 'react'
 import { trpc } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
-import { Search, Plus, X, Save, Printer } from 'lucide-react'
+import { Search, Plus, X, Save } from 'lucide-react'
 import { format } from 'date-fns'
 import { useRouter } from 'next/navigation'
 
@@ -63,21 +63,27 @@ interface ProduitItem {
   prixEnfcd: string | number
 }
 
+interface ProduitAssocieRaw {
+  code: string
+  libelle: string
+  raw: ProduitItem
+}
+
 interface LigneIntervention {
   codeIntervention: string
   libelle: string
   nbr: number
   medecinId: number | null
   assistantId: number | null
-  prix: number
-  produitsAssocies: { code: string; libelle: string; prix: number }[]
+  rawIntervention: InterventionSuggestion
+  produitsAssociesRaw: ProduitAssocieRaw[]
 }
 
 interface LigneProduit {
   codeProduit: string
   libelle: string
   quantite: number
-  prix: number
+  rawProduit: ProduitItem | null
 }
 
 const TARIF_OPTIONS = [
@@ -127,10 +133,11 @@ export default function NouvelleFacturePage() {
   const [interventionSuggestions, setIntervSuggestions] = useState<InterventionSuggestion[]>([])
   const [lignesIntervention, setLignesIntervention] = useState<LigneIntervention[]>([])
   const [lignesProduit, setLignesProduit] = useState<LigneProduit[]>([])
+  const [produitSearch, setProduitSearch] = useState('')
+  const [produitSuggestions, setProduitSuggestions] = useState<ProduitItem[]>([])
 
   const [medecins, setMedecins] = useState<PersonnelItem[]>([])
   const [assistants, setAssistants] = useState<PersonnelItem[]>([])
-  const [allProduits, setAllProduits] = useState<ProduitItem[]>([])
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -141,11 +148,12 @@ export default function NouvelleFacturePage() {
           trpc.personnel.list.query({ type: 'MEDECIN' }),
           trpc.personnel.list.query({ type: 'ASSISTANT' }),
         ])
-        setNumeroOrdre(num)
+        setNumeroOrdre(String(num))
         setMedecins(meds as unknown as PersonnelItem[])
         setAssistants(assts as unknown as PersonnelItem[])
-      } catch {
-        toast.error('Erreur de chargement')
+      } catch (err) {
+        console.error('Init error:', err)
+        toast.error('Erreur de chargement des données initiales')
       }
     }
     init()
@@ -179,6 +187,20 @@ export default function NouvelleFacturePage() {
     return () => clearTimeout(t)
   }, [interventionSearch])
 
+  useEffect(() => {
+    if (!produitSearch || produitSearch.length < 2) {
+      setProduitSuggestions([])
+      return
+    }
+    const t = setTimeout(async () => {
+      try {
+        const res = await trpc.produit.list.query({ search: produitSearch })
+        setProduitSuggestions(res as unknown as ProduitItem[])
+      } catch { /* ignore */ }
+    }, 200)
+    return () => clearTimeout(t)
+  }, [produitSearch])
+
   const selectPatient = (p: PatientSuggestion) => {
     setSelectedPatient(p)
     setPatientSearch(`${p.numeroPatient} - ${p.nom}`)
@@ -191,17 +213,18 @@ export default function NouvelleFacturePage() {
       return
     }
 
-    const prix = getInterventionPrix(intv, tarifType)
-
-    const produitsAssocies: { code: string; libelle: string; prix: number }[] = []
+    const produitsAssociesRaw: ProduitAssocieRaw[] = []
     for (let i = 1; i <= 10; i++) {
       const code = (intv as any)[`produit${i}`]
       if (code) {
         try {
           const prod = await trpc.produit.getByCode.query({ code })
           if (prod) {
-            const pPrix = getProduitPrix(prod as unknown as ProduitItem, tarifType)
-            produitsAssocies.push({ code: prod.codeProduit, libelle: prod.libelle, prix: pPrix })
+            produitsAssociesRaw.push({
+              code: prod.codeProduit,
+              libelle: prod.libelle,
+              raw: prod as unknown as ProduitItem,
+            })
           }
         } catch { /* ignore */ }
       }
@@ -213,8 +236,8 @@ export default function NouvelleFacturePage() {
       nbr: 1,
       medecinId: null,
       assistantId: null,
-      prix,
-      produitsAssocies,
+      rawIntervention: intv,
+      produitsAssociesRaw,
     }])
     setIntervSearch('')
     setIntervSuggestions([])
@@ -230,20 +253,35 @@ export default function NouvelleFacturePage() {
     setLignesIntervention(lignes)
   }
 
-  const addProduitManuel = () => {
-    setLignesProduit([...lignesProduit, { codeProduit: '', libelle: '', quantite: 1, prix: 0 }])
+  const addProduitFromSearch = (p: ProduitItem) => {
+    if (lignesProduit.some((l) => l.codeProduit === p.codeProduit)) {
+      toast.error('Produit déjà ajouté')
+      return
+    }
+    setLignesProduit([...lignesProduit, {
+      codeProduit: p.codeProduit,
+      libelle: p.libelle,
+      quantite: 1,
+      rawProduit: p,
+    }])
+    setProduitSearch('')
+    setProduitSuggestions([])
   }
 
   const removeProduit = (idx: number) => {
     setLignesProduit(lignesProduit.filter((_, i) => i !== idx))
   }
 
-  const totalInterventions = lignesIntervention.reduce((sum, l) => sum + l.prix * l.nbr, 0)
+  const getIntPrix = (l: LigneIntervention) => getInterventionPrix(l.rawIntervention, tarifType)
+  const getProdAssoPrix = (p: ProduitAssocieRaw) => getProduitPrix(p.raw, tarifType)
+  const getProdManuelPrix = (l: LigneProduit) => l.rawProduit ? getProduitPrix(l.rawProduit, tarifType) : 0
+
+  const totalInterventions = lignesIntervention.reduce((sum, l) => sum + getIntPrix(l) * l.nbr, 0)
   const totalProduitsAssocies = lignesIntervention.reduce(
-    (sum, l) => sum + l.produitsAssocies.reduce((s, p) => s + p.prix, 0) * l.nbr,
+    (sum, l) => sum + l.produitsAssociesRaw.reduce((s, p) => s + getProdAssoPrix(p), 0) * l.nbr,
     0
   )
-  const totalProduitsManuels = lignesProduit.reduce((sum, l) => sum + l.prix * l.quantite, 0)
+  const totalProduitsManuels = lignesProduit.reduce((sum, l) => sum + getProdManuelPrix(l) * l.quantite, 0)
   const totalGeneral = totalInterventions + totalProduitsAssocies + totalProduitsManuels
 
   const handleSave = async () => {
@@ -259,7 +297,7 @@ export default function NouvelleFacturePage() {
     try {
       const produits = [
         ...lignesIntervention.flatMap((l) =>
-          l.produitsAssocies.map((p) => ({ codeProduit: p.code, quantite: l.nbr }))
+          l.produitsAssociesRaw.map((p) => ({ codeProduit: p.code, quantite: l.nbr }))
         ),
         ...lignesProduit.filter((l) => l.codeProduit).map((l) => ({
           codeProduit: l.codeProduit,
@@ -285,7 +323,7 @@ export default function NouvelleFacturePage() {
       toast.success(`Facture ${(result as any)?.numeroOrdre || numeroOrdre} créée`)
       router.push('/factures')
     } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : 'Erreur')
+      toast.error(error instanceof Error ? error.message : 'Erreur lors de la création')
     } finally {
       setSaving(false)
     }
@@ -505,45 +543,37 @@ export default function NouvelleFacturePage() {
               </TableHeader>
               <TableBody>
                 {lignesIntervention.map((l) => (
-                  <>
-                    <TableRow key={`int-${l.codeIntervention}`} className="bg-muted/30">
+                  <Fragment key={`grp-${l.codeIntervention}`}>
+                    <TableRow className="bg-muted/30">
                       <TableCell className="text-sm font-medium">
                         <Badge variant="outline" className="font-mono text-xs mr-2">{l.codeIntervention}</Badge>
                         {l.libelle}
                       </TableCell>
                       <TableCell className="text-right">{l.nbr}</TableCell>
-                      <TableCell className="text-right text-sm">{l.prix.toLocaleString()}</TableCell>
-                      <TableCell className="text-right font-medium">{(l.prix * l.nbr).toLocaleString()} Ar</TableCell>
+                      <TableCell className="text-right text-sm">{getIntPrix(l).toLocaleString()}</TableCell>
+                      <TableCell className="text-right font-medium">{(getIntPrix(l) * l.nbr).toLocaleString()} Ar</TableCell>
                     </TableRow>
-                    {l.produitsAssocies.map((p) => (
+                    {l.produitsAssociesRaw.map((p) => (
                       <TableRow key={`prod-${l.codeIntervention}-${p.code}`} className="text-muted-foreground">
                         <TableCell className="text-xs pl-8">
                           <Badge variant="outline" className="font-mono text-xs mr-1">{p.code}</Badge>
                           {p.libelle}
                         </TableCell>
                         <TableCell className="text-right text-xs">{l.nbr}</TableCell>
-                        <TableCell className="text-right text-xs">{p.prix.toLocaleString()}</TableCell>
-                        <TableCell className="text-right text-xs">{(p.prix * l.nbr).toLocaleString()} Ar</TableCell>
+                        <TableCell className="text-right text-xs">{getProdAssoPrix(p).toLocaleString()}</TableCell>
+                        <TableCell className="text-right text-xs">{(getProdAssoPrix(p) * l.nbr).toLocaleString()} Ar</TableCell>
                       </TableRow>
                     ))}
-                  </>
+                  </Fragment>
                 ))}
 
                 {lignesProduit.map((l, idx) => (
                   <TableRow key={`manual-${idx}`}>
                     <TableCell className="text-sm">
-                      <Input
-                        placeholder="Code produit"
-                        value={l.codeProduit}
-                        onChange={(e) => {
-                          const lignes = [...lignesProduit]
-                          lignes[idx] = { ...l, codeProduit: e.target.value.toUpperCase() }
-                          setLignesProduit(lignes)
-                        }}
-                        className="h-7 w-full"
-                      />
+                      <Badge variant="outline" className="font-mono text-xs mr-1">{l.codeProduit}</Badge>
+                      {l.libelle}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-right">
                       <Input
                         type="number"
                         min={1}
@@ -553,24 +583,13 @@ export default function NouvelleFacturePage() {
                           lignes[idx] = { ...l, quantite: parseInt(e.target.value) || 1 }
                           setLignesProduit(lignes)
                         }}
-                        className="h-7 w-12"
+                        className="h-7 w-14"
                       />
                     </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        value={l.prix}
-                        onChange={(e) => {
-                          const lignes = [...lignesProduit]
-                          lignes[idx] = { ...l, prix: parseFloat(e.target.value) || 0 }
-                          setLignesProduit(lignes)
-                        }}
-                        className="h-7 w-20"
-                      />
-                    </TableCell>
+                    <TableCell className="text-right text-sm">{getProdManuelPrix(l).toLocaleString()}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <span className="text-sm">{(l.prix * l.quantite).toLocaleString()} Ar</span>
+                        <span className="text-sm">{(getProdManuelPrix(l) * l.quantite).toLocaleString()} Ar</span>
                         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeProduit(idx)}>
                           <X className="h-3 w-3" />
                         </Button>
@@ -589,12 +608,33 @@ export default function NouvelleFacturePage() {
               </TableBody>
             </Table>
 
-            {/* Footer : total + boutons */}
+            {/* Footer : recherche produit + total */}
             <div className="border-t p-4 space-y-3">
-              <div className="flex justify-between items-center">
-                <Button variant="outline" size="sm" onClick={addProduitManuel}>
-                  <Plus className="mr-1 h-3 w-3" />Ajouter produit
-                </Button>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Ajouter un produit (code ou libellé)..."
+                  value={produitSearch}
+                  onChange={(e) => setProduitSearch(e.target.value)}
+                  className="pl-9"
+                />
+                {produitSuggestions.length > 0 && (
+                  <div className="absolute z-10 bottom-full mb-1 w-full rounded-md border bg-popover shadow-lg max-h-48 overflow-y-auto">
+                    {produitSuggestions.map((p) => (
+                      <button
+                        key={p.codeProduit}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-accent text-sm"
+                        onClick={() => addProduitFromSearch(p)}
+                      >
+                        <Badge variant="outline" className="font-mono text-xs">{p.codeProduit}</Badge>
+                        <span className="flex-1 truncate">{p.libelle}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {getProduitPrix(p, tarifType).toLocaleString()} Ar
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               {totalInterventions > 0 && (
                 <div className="flex justify-between text-sm">
