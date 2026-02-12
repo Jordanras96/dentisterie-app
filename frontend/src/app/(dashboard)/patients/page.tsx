@@ -235,7 +235,7 @@ export default function PatientsPage() {
                           : '-'}
                       </TableCell>
                       <TableCell>
-                        <Link href={`/patients/${p.numeroPatient}`}>
+                        <Link href={`/patients/detail?numero=${p.numeroPatient}`}>
                           <Button variant="ghost" size="icon" className="h-8 w-8">
                             <Eye className="h-4 w-4" />
                           </Button>

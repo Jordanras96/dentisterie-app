@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
@@ -18,6 +19,7 @@ import {
   Activity,
   UserCog,
   DollarSign,
+  Banknote,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -30,6 +32,7 @@ const navItems = [
   { href: '/interventions', label: 'Interventions', icon: Stethoscope },
   { href: '/produits', label: 'Produits', icon: Package },
   { href: '/factures', label: 'Factures', icon: FileText },
+  { href: '/factures/billetage', label: 'Billetage', icon: Banknote },
   { href: '/tarifs', label: 'Tarifs', icon: DollarSign },
   { href: '/activites', label: 'Activités', icon: Activity },
   { href: '/rendez-vous', label: 'Rendez-vous', icon: CalendarDays },
@@ -66,12 +69,10 @@ export function AppSidebar() {
   return (
     <aside className="flex h-screen w-64 flex-col border-r bg-sidebar text-sidebar-foreground">
       <div className="flex items-center gap-3 border-b px-4 py-4">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm">
-          HY
-        </div>
+        <Image src="/images/logodt.png" alt="SyGeDe" width={36} height={36} className="rounded-lg" />
         <div className="flex flex-col">
-          <span className="text-sm font-semibold">Dentisterie</span>
-          <span className="text-xs text-muted-foreground">Hôpital Y Loterana</span>
+          <span className="text-sm font-semibold">SyGeDe</span>
+          <span className="text-xs text-muted-foreground">Hôpital Loterana Andranomadio</span>
         </div>
       </div>
 

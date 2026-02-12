@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { trpc } from '@/lib/trpc'
+import { useAuth } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -75,6 +76,8 @@ const emptyForm = {
 }
 
 export default function InterventionsPage() {
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN'
   const [treeData, setTreeData] = useState<TreeData>({ tree: [], orphans: [] })
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<InterventionItem | null>(null)
@@ -271,6 +274,7 @@ export default function InterventionsPage() {
                       type="number"
                       value={form[key as keyof typeof form] as number}
                       onChange={(e) => setForm({ ...form, [key]: parseFloat(e.target.value) || 0 })}
+                      disabled={editMode && !isAdmin}
                     />
                   </div>
                 ))}
@@ -283,6 +287,7 @@ export default function InterventionsPage() {
                   placeholder="P601, P602, P603"
                 />
               </div>
+              {editMode && !isAdmin && <p className="text-xs text-muted-foreground">Seuls les administrateurs peuvent modifier les prix.</p>}
               <Button type="submit" className="w-full">{editMode ? 'Modifier' : 'Créer'}</Button>
             </form>
           </DialogContent>

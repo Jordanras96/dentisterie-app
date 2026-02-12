@@ -36,6 +36,10 @@ Thumbs.db
 # Tauri
 src-tauri/target/
 
+# Electron build output
+dist-electron/
+frontend/dist-electron/
+
 # Test coverage
 coverage/
 .nyc_output/

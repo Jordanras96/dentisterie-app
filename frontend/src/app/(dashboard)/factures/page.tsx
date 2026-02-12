@@ -38,8 +38,8 @@ export default function FacturesPage() {
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [pages, setPages] = useState(1)
-  const [dateDebut, setDateDebut] = useState('')
-  const [dateFin, setDateFin] = useState('')
+  const [dateDebut, setDateDebut] = useState(() => format(new Date(), 'yyyy-MM-dd'))
+  const [dateFin, setDateFin] = useState(() => format(new Date(), 'yyyy-MM-dd'))
   const [loading, setLoading] = useState(true)
 
   const fetchFactures = useCallback(async () => {
@@ -127,7 +127,7 @@ export default function FacturesPage() {
                         {Number(f.montantTotal).toLocaleString()} Ar
                       </TableCell>
                       <TableCell>
-                        <Link href={`/factures/${f.numeroOrdre}`}>
+                        <Link href={`/factures/detail?numero=${f.numeroOrdre}`}>
                           <Button variant="ghost" size="icon" className="h-8 w-8"><Eye className="h-4 w-4" /></Button>
                         </Link>
                       </TableCell>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { trpc } from '@/lib/trpc'
+import { useAuth } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -51,6 +52,8 @@ interface StockLigne {
 }
 
 export default function ProduitsPage() {
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN'
   const [produits, setProduits] = useState<Produit[]>([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
@@ -250,12 +253,13 @@ export default function ProduitsPage() {
               <Input value={form.unite} onChange={(e) => setForm({ ...form, unite: e.target.value })} placeholder="Boîte, Pièce, Tube..." />
             </div>
             <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1"><Label className="text-xs">Prix vente</Label><Input type="number" value={form.prixVte} onChange={(e) => setForm({ ...form, prixVte: parseFloat(e.target.value) || 0 })} /></div>
-              <div className="space-y-1"><Label className="text-xs">Prix achat</Label><Input type="number" value={form.prixAchat} onChange={(e) => setForm({ ...form, prixAchat: parseFloat(e.target.value) || 0 })} /></div>
-              <div className="space-y-1"><Label className="text-xs">Personnel</Label><Input type="number" value={form.prixPers} onChange={(e) => setForm({ ...form, prixPers: parseFloat(e.target.value) || 0 })} /></div>
-              <div className="space-y-1"><Label className="text-xs">Retraité</Label><Input type="number" value={form.prixRetraite} onChange={(e) => setForm({ ...form, prixRetraite: parseFloat(e.target.value) || 0 })} /></div>
-              <div className="space-y-1"><Label className="text-xs">Enf CD</Label><Input type="number" value={form.prixEnfcd} onChange={(e) => setForm({ ...form, prixEnfcd: parseFloat(e.target.value) || 0 })} /></div>
+              <div className="space-y-1"><Label className="text-xs">Prix vente</Label><Input type="number" value={form.prixVte} onChange={(e) => setForm({ ...form, prixVte: parseFloat(e.target.value) || 0 })} disabled={editMode && !isAdmin} /></div>
+              <div className="space-y-1"><Label className="text-xs">Prix achat</Label><Input type="number" value={form.prixAchat} onChange={(e) => setForm({ ...form, prixAchat: parseFloat(e.target.value) || 0 })} disabled={editMode && !isAdmin} /></div>
+              <div className="space-y-1"><Label className="text-xs">Personnel</Label><Input type="number" value={form.prixPers} onChange={(e) => setForm({ ...form, prixPers: parseFloat(e.target.value) || 0 })} disabled={editMode && !isAdmin} /></div>
+              <div className="space-y-1"><Label className="text-xs">Retraité</Label><Input type="number" value={form.prixRetraite} onChange={(e) => setForm({ ...form, prixRetraite: parseFloat(e.target.value) || 0 })} disabled={editMode && !isAdmin} /></div>
+              <div className="space-y-1"><Label className="text-xs">Enf CD</Label><Input type="number" value={form.prixEnfcd} onChange={(e) => setForm({ ...form, prixEnfcd: parseFloat(e.target.value) || 0 })} disabled={editMode && !isAdmin} /></div>
             </div>
+            {editMode && !isAdmin && <p className="text-xs text-muted-foreground">Seuls les administrateurs peuvent modifier les prix.</p>}
             <Button type="submit" className="w-full">{editMode ? 'Modifier' : 'Créer'}</Button>
           </form>
         </DialogContent>

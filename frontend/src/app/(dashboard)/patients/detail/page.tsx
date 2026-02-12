@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { trpc } from '@/lib/trpc'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,10 +15,10 @@ import { ArrowLeft, Save, Trash2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
-export default function PatientDetailClient() {
-  const params = useParams()
+export default function PatientDetailPage() {
+  const searchParams = useSearchParams()
   const router = useRouter()
-  const numero = params.numero as string
+  const numero = searchParams.get('numero') || ''
   const [patient, setPatient] = useState<Record<string, unknown> | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -35,6 +35,10 @@ export default function PatientDetailClient() {
 
   useEffect(() => {
     async function load() {
+      if (!numero) {
+        router.replace('/patients')
+        return
+      }
       try {
         const p = await trpc.patient.getByNumero.query({ numero })
         setPatient(p as unknown as Record<string, unknown>)
