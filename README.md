@@ -1,4 +1,4 @@
-# Dentisterie App - Hôpital Y Loterana
+# Dentisterie App -
 
 Application desktop complète pour la gestion d'un service de dentisterie hospitalier.
 
