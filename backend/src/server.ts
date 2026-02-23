@@ -4,6 +4,7 @@ import cookie from '@fastify/cookie'
 import { fastifyTRPCPlugin } from '@trpc/server/adapters/fastify'
 import { appRouter } from './trpc/router'
 import { createContext } from './trpc/context'
+import { isRateLimited, isAuthRateLimited } from './lib/rate-limit'
 import dotenv from 'dotenv'
 
 dotenv.config()
@@ -27,13 +28,29 @@ async function main() {
   // Cookies
   await server.register(cookie)
 
+  // Rate limiting hook
+  server.addHook('onRequest', async (request, reply) => {
+    const ip = request.ip || 'unknown'
+    const isAuthRoute = request.url?.includes('/trpc/auth.login')
+
+    if (isAuthRoute && isAuthRateLimited(ip)) {
+      reply.code(429).send({ error: 'Too many login attempts. Try again later.' })
+      return
+    }
+
+    if (isRateLimited(ip)) {
+      reply.code(429).send({ error: 'Too many requests. Try again later.' })
+      return
+    }
+  })
+
   // tRPC
   await server.register(fastifyTRPCPlugin, {
     prefix: '/trpc',
     trpcOptions: {
       router: appRouter,
       createContext,
-      onError({ path, error }) {
+      onError({ path, error }: { path: string | undefined; error: Error }) {
         console.error(`Error in tRPC handler on path '${path}':`, error)
       },
     },

@@ -123,6 +123,7 @@ model Intervention {
   prixTiko          Decimal  @default(0) @map("prix_tiko") @db.Decimal(12, 2)
   prixPersonnel     Decimal  @default(0) @map("prix_personnel") @db.Decimal(12, 2)
   prixRetraite      Decimal  @default(0) @map("prix_retraite") @db.Decimal(12, 2)
+  prixEnfcd         Decimal  @default(0) @map("prix_enfcd") @db.Decimal(12, 2)
   produit1          String?
   produit2          String?
   produit3          String?

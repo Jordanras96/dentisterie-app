@@ -10,6 +10,7 @@ import { rapportRouter } from './routers/rapport'
 import { statistiqueRouter } from './routers/statistique'
 import { parametreRouter } from './routers/parametre'
 import { userRouter } from './routers/user'
+import { tarifRouter } from './routers/tarif'
 
 export const appRouter = router({
   auth: authRouter,
@@ -23,6 +24,7 @@ export const appRouter = router({
   statistique: statistiqueRouter,
   parametre: parametreRouter,
   user: userRouter,
+  tarif: tarifRouter,
 })
 
 export type AppRouter = typeof appRouter

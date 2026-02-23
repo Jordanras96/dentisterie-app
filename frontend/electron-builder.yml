@@ -1,0 +1,27 @@
+appId: mg.hla.sygede
+productName: SyGeDe
+directories:
+  output: dist-electron
+files:
+  - electron/**/*
+  - out/**/*
+  - package.json
+  - node_modules/electron-serve/**/*
+mac:
+  category: public.app-category.medical
+  target:
+    - dmg
+    - zip
+win:
+  target:
+    - nsis
+  artifactName: SyGeDe-Setup-${version}.${ext}
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  installerSidebar: null
+  uninstallerSidebar: null
+linux:
+  target:
+    - AppImage
+    - deb

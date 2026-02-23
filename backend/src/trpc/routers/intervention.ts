@@ -1,5 +1,16 @@
 import { router, protectedProcedure } from '../trpc'
 import { z } from 'zod'
+import { TRPCError } from '@trpc/server'
+
+function classifyCode(code: string) {
+  const numeric = code.replace(/^[A-Z]/i, '')
+  const len = numeric.length
+  return {
+    isParent: len === 1,
+    isMiddle: len === 2,
+    isChild: len >= 3,
+  }
+}
 
 export const interventionRouter = router({
   list: protectedProcedure
@@ -7,6 +18,7 @@ export const interventionRouter = router({
       z.object({
         type: z.enum(['parent', 'middle', 'child', 'all']).default('all'),
         parentCode: z.string().optional(),
+        search: z.string().optional(),
       })
     )
     .query(async ({ input, ctx }) => {
@@ -20,6 +32,13 @@ export const interventionRouter = router({
         where.codeTravail = { startsWith: input.parentCode }
       }
 
+      if (input.search) {
+        where.OR = [
+          { codeTravail: { contains: input.search, mode: 'insensitive' } },
+          { libelle: { contains: input.search, mode: 'insensitive' } },
+        ]
+      }
+
       return ctx.prisma.intervention.findMany({
         where,
         orderBy: { codeTravail: 'asc' },
@@ -27,40 +46,51 @@ export const interventionRouter = router({
     }),
 
   tree: protectedProcedure.query(async ({ ctx }) => {
-    const parents = await ctx.prisma.intervention.findMany({
-      where: { isParent: true },
+    const all = await ctx.prisma.intervention.findMany({
       orderBy: { codeTravail: 'asc' },
     })
 
-    const tree = await Promise.all(
-      parents.map(async (parent) => {
-        const middles = await ctx.prisma.intervention.findMany({
-          where: {
-            isMiddle: true,
-            codeTravail: { startsWith: parent.codeTravail },
-          },
-          orderBy: { codeTravail: 'asc' },
-        })
+    const parents = all.filter((i) => i.isParent)
+    const middles = all.filter((i) => i.isMiddle)
+    const children = all.filter((i) => i.isChild)
 
-        const middleWithChildren = await Promise.all(
-          middles.map(async (middle) => {
-            const children = await ctx.prisma.intervention.findMany({
-              where: {
-                isChild: true,
-                codeTravail: { startsWith: middle.codeTravail },
-              },
-              orderBy: { codeTravail: 'asc' },
-            })
+    const middleSet = new Set(middles.map((m) => m.codeTravail))
+    const parentSet = new Set(parents.map((p) => p.codeTravail))
 
-            return { ...middle, children }
-          })
+    const tree = parents.map((parent) => {
+      const parentMiddles = middles.filter((m) =>
+        m.codeTravail.startsWith(parent.codeTravail)
+      )
+
+      const directChildren = children.filter((c) => {
+        const possibleMiddle = c.codeTravail.substring(0, 3)
+        return (
+          c.codeTravail.startsWith(parent.codeTravail) &&
+          !middleSet.has(possibleMiddle)
         )
-
-        return { ...parent, children: middleWithChildren }
       })
-    )
 
-    return tree
+      const middleWithChildren = parentMiddles.map((middle) => ({
+        ...middle,
+        children: children.filter((c) =>
+          c.codeTravail.startsWith(middle.codeTravail)
+        ),
+      }))
+
+      return {
+        ...parent,
+        children: middleWithChildren,
+        directChildren,
+      }
+    })
+
+    const orphans = children.filter((c) => {
+      const possibleParent = c.codeTravail.substring(0, 2)
+      const possibleMiddle = c.codeTravail.substring(0, 3)
+      return !parentSet.has(possibleParent) && !middleSet.has(possibleMiddle)
+    })
+
+    return { tree, orphans }
   }),
 
   getByCode: protectedProcedure
@@ -81,11 +111,13 @@ export const interventionRouter = router({
         prixTiko: z.number().default(0),
         prixPersonnel: z.number().default(0),
         prixRetraite: z.number().default(0),
+        prixEnfcd: z.number().default(0),
         produits: z.array(z.string()).optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
       const { produits, ...data } = input
+      const { isParent, isMiddle, isChild } = classifyCode(input.codeTravail)
 
       const intervention = await ctx.prisma.intervention.create({
         data: {
@@ -100,9 +132,9 @@ export const interventionRouter = router({
           produit8: produits?.[7],
           produit9: produits?.[8],
           produit10: produits?.[9],
-          isParent: input.codeTravail.replace('I', '').length === 1,
-          isMiddle: input.codeTravail.replace('I', '').length === 2,
-          isChild: input.codeTravail.replace('I', '').length >= 3,
+          isParent,
+          isMiddle,
+          isChild,
         },
       })
 
@@ -113,10 +145,99 @@ export const interventionRouter = router({
           module: 'intervention',
           entityType: 'Intervention',
           entityId: intervention.id.toString(),
-          details: { codeTravail: intervention.codeTravail },
+          details: { codeTravail: intervention.codeTravail, libelle: intervention.libelle },
         },
       })
 
       return intervention
+    }),
+
+  update: protectedProcedure
+    .input(
+      z.object({
+        codeTravail: z.string(),
+        libelle: z.string().optional(),
+        prixPublic: z.number().optional(),
+        prixPriseCharge: z.number().optional(),
+        prixTiko: z.number().optional(),
+        prixPersonnel: z.number().optional(),
+        prixRetraite: z.number().optional(),
+        prixEnfcd: z.number().optional(),
+        produits: z.array(z.string()).optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const { codeTravail, produits, ...data } = input
+
+      const existing = await ctx.prisma.intervention.findUnique({
+        where: { codeTravail },
+      })
+      if (!existing) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Intervention non trouvée' })
+      }
+
+      const produitData: any = {}
+      if (produits) {
+        for (let i = 0; i < 10; i++) {
+          produitData[`produit${i + 1}`] = produits[i] || null
+        }
+      }
+
+      const intervention = await ctx.prisma.intervention.update({
+        where: { codeTravail },
+        data: { ...data, ...produitData },
+      })
+
+      await ctx.prisma.userLog.create({
+        data: {
+          userId: ctx.user!.id,
+          action: 'UPDATE',
+          module: 'intervention',
+          entityType: 'Intervention',
+          entityId: intervention.id.toString(),
+          details: data,
+        },
+      })
+
+      return intervention
+    }),
+
+  delete: protectedProcedure
+    .input(z.object({ codeTravail: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      const existing = await ctx.prisma.intervention.findUnique({
+        where: { codeTravail: input.codeTravail },
+      })
+      if (!existing) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Intervention non trouvée' })
+      }
+
+      if (ctx.user!.role === 'OPERATOR') {
+        await ctx.prisma.deletionRequest.create({
+          data: {
+            userId: ctx.user!.id,
+            module: 'intervention',
+            entityType: 'Intervention',
+            entityId: existing.id.toString(),
+            reason: 'Demande de suppression par opérateur',
+          },
+        })
+        return { success: true, message: 'Demande de suppression envoyée' }
+      }
+
+      await ctx.prisma.intervention.delete({ where: { codeTravail: input.codeTravail } })
+
+      await ctx.prisma.userLog.create({
+        data: {
+          userId: ctx.user!.id,
+          action: 'DELETE',
+          module: 'intervention',
+          entityType: 'Intervention',
+          entityId: existing.id.toString(),
+          details: { codeTravail: existing.codeTravail, libelle: existing.libelle },
+        },
+      })
+
+      return { success: true, message: 'Intervention supprimée' }
     }),
 })
